@@ -4,13 +4,16 @@
 """
 import subprocess
 
+import chardet
+
 args = ['ping', 'yandex.ru']
 
 yandex_ping = subprocess.Popen(args, stdout=subprocess.PIPE)
 
 for line in yandex_ping.stdout:
+    result = chardet.detect(line)
     line = line.decode('cp866').encode('utf-8').decode('utf-8')
-    print(line, type(line))
+    print(line)
 
 """
 Отдельный пинг youtube.com наверное нет смысла делать, это идентичный код.
