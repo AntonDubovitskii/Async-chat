@@ -1,0 +1,25 @@
+{
+    "orders": [
+        {
+            "item": "TV r10-lef",
+            "quantity": 1,
+            "price": 65078,
+            "buyer": "Иванов И.А.",
+            "date": "05/04/2023 15:17:28"
+        },
+        {
+            "item": "Printer f12A",
+            "quantity": 20,
+            "price": 10233,
+            "buyer": "Сидоров Г.У.",
+            "date": "05/04/2023 15:17:28"
+        },
+        {
+            "item": "Scaner tr10",
+            "quantity": 1,
+            "price": 8300,
+            "buyer": "Еремина Д.Н.",
+            "date": "05/04/2023 15:17:28"
+        }
+    ]
+}

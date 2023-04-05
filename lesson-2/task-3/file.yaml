@@ -1,0 +1,9 @@
+car_models:
+- BMW X6 M Competition 2024
+- BMW 5 Series Hybrid 2023
+- BMW M240i 2023
+'manufacturer_id:': 172893
+prices:
+  BMW 5 Series Hybrid 2023: 51.888€
+  BMW M240i 2023: 44.068€
+  BMW X6 M Competition 2024: 117.024€
