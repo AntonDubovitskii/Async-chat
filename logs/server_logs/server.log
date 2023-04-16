@@ -1,0 +1,9 @@
+2023-04-17 03:35:05,991 - INFO  server: Presence message was sent by the client: ('127.0.0.1', 57800) 
+2023-04-17 03:35:05,991 - INFO  server: Response with a code 200 was sent to the client: ('127.0.0.1', 57800) 
+2023-04-17 03:35:28,796 - INFO  server: Presence message was sent by the client: ('127.0.0.1', 57894) 
+2023-04-17 03:35:28,796 - INFO  server: Response with a code 200 was sent to the client: ('127.0.0.1', 57894) 
+2023-04-17 03:37:51,160 - ERROR  server: Port 100 was entered. Available ports range from 1024 to 65535 
+2023-04-17 03:42:53,418 - INFO  server: Presence message was sent by the client: ('127.0.0.1', 60150) 
+2023-04-17 03:42:53,419 - INFO  server: Response with a code 200 was sent to the client: ('127.0.0.1', 60150) 
+2023-04-17 03:42:55,811 - INFO  server: Presence message was sent by the client: ('127.0.0.1', 60160) 
+2023-04-17 03:42:55,811 - INFO  server: Response with a code 200 was sent to the client: ('127.0.0.1', 60160) 

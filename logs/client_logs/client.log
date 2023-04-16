@@ -1,0 +1,5 @@
+2023-04-17 03:35:05,991 - INFO  client: Server answer to presence message: 200 
+2023-04-17 03:35:25,111 - ERROR  client: Port 89999 was entered. Available ports range from 1024 to 65535. 
+2023-04-17 03:35:28,796 - INFO  client: Server answer to presence message: 200 
+2023-04-17 03:42:53,419 - INFO  client: Server answer to presence message: 200 
+2023-04-17 03:42:55,812 - INFO  client: Server answer to presence message: 200 
