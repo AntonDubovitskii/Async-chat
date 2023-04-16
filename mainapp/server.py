@@ -1,7 +1,15 @@
 import sys
 import time
+import logging
+
+
+sys.path.append("..")
+
+from logs import server_log_config
 from socket import *
 from mainapp.data_transfer import get_data, send_data
+
+logger = logging.getLogger('server')
 
 
 def process_presence_msg(data: dict):
@@ -42,8 +50,7 @@ def main():
         if listen_port < 1024 or listen_port > 65535:
             raise ValueError
     except ValueError:
-        print(
-            'Ошибка! Доступные порты находятся от 1024 до 65535.')
+        logger.error(f'Port {listen_port} was entered. Available ports range from 1024 to 65535')
         sys.exit(1)
 
     # Инициализация сокета на основании полученных параметров
@@ -55,11 +62,15 @@ def main():
         client, addr = s.accept()
         data = get_data(client)
 
-        print('Сообщение: ', data, ', было отправлено клиентом: ', addr)
+        logger.info(f'{data["action"]} message was sent by the client: {addr}'.capitalize())
 
         answer_msg = process_presence_msg(data)
 
-        send_data(client, answer_msg)
+        try:
+            send_data(client, answer_msg)
+            logger.info(f'Response with a code {answer_msg["response"]} was sent to the client: {addr}')
+        except ValueError as e:
+            logger.error(e)
 
         client.close()
 
@@ -69,4 +80,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print(e)
+        logger.critical(e)
+

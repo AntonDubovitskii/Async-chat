@@ -1,7 +1,14 @@
 import sys
 import time
+import logging
+
+sys.path.append("..")
+
+from logs import client_log_config
 from socket import *
 from mainapp.data_transfer import get_data, send_data
+
+logger = logging.getLogger('client')
 
 
 def generate_greeting(account_name='Guest'):
@@ -26,10 +33,13 @@ def process_server_answer(data_dict):
     Обработка ответа от сервера на presence-сообщение
     """
     if data_dict['response'] == 200:
+        logger.info(f'Server answer to presence message: {data_dict["response"]}')
         return '200 OK'
     elif data_dict['response'] == 400:
+        logger.error(f'Server answer to presence message: {data_dict["response"]}')
         return '400 Bad Request'
     else:
+        logger.error(f'Server answer to presence message: {data_dict["response"]}')
         return 'Произошла неизвестная ошибка'
 
 
@@ -45,7 +55,7 @@ def main():
         server_address = '127.0.0.1'
         server_port = 1111
     except ValueError:
-        print('Ошибка! Доступные порты находятся в диапазоне от 1024 до 65535.')
+        logger.error(f'Port {server_port} was entered. Available ports range from 1024 to 65535.')
         sys.exit(1)
 
     s = socket(AF_INET, SOCK_STREAM)
@@ -65,5 +75,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print(e)
+        logger.critical(e)
 
