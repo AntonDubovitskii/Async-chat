@@ -1,7 +1,28 @@
-import json
 import sys
 import time
 from socket import *
+from mainapp.data_transfer import get_data, send_data
+
+
+def process_presence_msg(data: dict):
+    """
+    Проверка обязательных полей json объекта, необходимых для соответствия протоколу JIM
+    и формирование соответствующего словаря для ответа клиенту
+    """
+    if 'action' in data and 'time' in data and 'user' in data \
+            and data['action'] == 'presence' and data['user']['account_name']:
+        msg = {
+            "response": 200,
+            "time": time.time(),
+            "alert": f"Привет {data['user']['account_name']}!"
+        }
+    else:
+        msg = {
+            "response": 400,
+            "time": time.time(),
+            "error": "Bad Request"
+        }
+    return msg
 
 
 def main():
@@ -32,28 +53,14 @@ def main():
 
     while True:
         client, addr = s.accept()
-        data = client.recv(100000).decode('utf-8')
-        data_dict = json.loads(data)
+        data = get_data(client)
+
         print('Сообщение: ', data, ', было отправлено клиентом: ', addr)
 
-        # Проверка обязательных полей json объекта, необходимых для соответствия протоколу JIM
-        # и формирование соответствующего словаря для ответа клиенту
-        if 'action' in data_dict and 'time' in data_dict and 'user' in data_dict \
-                and data_dict['action'] == 'presence' and data_dict['user']['account_name']:
-            msg = {
-                "response": 200,
-                "time": time.time(),
-                "alert": f"Привет {data_dict['user']['account_name']}!"
-            }
-        else:
-            msg = {
-                "response": 400,
-                "time": time.time(),
-                "error": "Bad Request"
-            }
+        answer_msg = process_presence_msg(data)
 
-        objs = json.dumps(msg, indent=4, ensure_ascii=False)
-        client.send(objs.encode('utf-8'))
+        send_data(client, answer_msg)
+
         client.close()
 
 
