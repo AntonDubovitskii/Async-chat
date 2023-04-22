@@ -8,10 +8,12 @@ sys.path.append("..")
 from logs import server_log_config
 from socket import *
 from mainapp.data_transfer import get_data, send_data
+from additional_tools.log_decorator import log
 
 logger = logging.getLogger('server')
 
 
+@log
 def process_presence_msg(data: dict):
     """
     Проверка обязательных полей json объекта, необходимых для соответствия протоколу JIM
@@ -45,7 +47,7 @@ def main():
         if '-p' in sys.argv:
             listen_port = int(sys.argv[sys.argv.index('-p') + 1])
         else:
-            listen_port = 1111
+            listen_port = 35000
 
         if listen_port < 1024 or listen_port > 65535:
             raise ValueError
