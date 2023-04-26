@@ -7,10 +7,12 @@ sys.path.append("..")
 from logs import client_log_config
 from socket import *
 from mainapp.data_transfer import get_data, send_data
+from additional_tools.log_decorator import log
 
 logger = logging.getLogger('client')
 
 
+@log
 def generate_greeting(account_name='Guest'):
     """
     Формирование словаря с presence-сообщением, который далее будет переведен
@@ -28,6 +30,7 @@ def generate_greeting(account_name='Guest'):
     return message
 
 
+@log
 def process_server_answer(data_dict):
     """
     Обработка ответа от сервера на presence-сообщение
@@ -44,7 +47,6 @@ def process_server_answer(data_dict):
 
 
 def main():
-
     # Проверка и парсинг параметров командной строки
     try:
         server_address = sys.argv[1]
@@ -53,7 +55,7 @@ def main():
             raise ValueError
     except IndexError:
         server_address = '127.0.0.1'
-        server_port = 1111
+        server_port = 35000
     except ValueError:
         logger.error(f'Port {server_port} was entered. Available ports range from 1024 to 65535.')
         sys.exit(1)
@@ -76,4 +78,3 @@ if __name__ == '__main__':
         main()
     except Exception as e:
         logger.critical(e)
-
