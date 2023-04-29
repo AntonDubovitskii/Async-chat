@@ -1,5 +1,0 @@
-2023-04-22 17:50:48,135 - DEBUG  log_decorator: Вызвана функция generate_greeting с параметрами ('Anton_1993',), {} 
-2023-04-22 17:50:48,135 - DEBUG  log_decorator: Функция generate_greeting() вызвана из функции main 
-2023-04-22 17:50:48,138 - INFO  client: Server answer to presence message: 200 
-2023-04-22 17:50:48,138 - DEBUG  log_decorator: Вызвана функция process_server_answer с параметрами ({'response': 200, 'time': 1682171448.136203, 'alert': 'Привет Anton_1993!'},), {} 
-2023-04-22 17:50:48,138 - DEBUG  log_decorator: Функция process_server_answer() вызвана из функции main 

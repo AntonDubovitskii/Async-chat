@@ -1,43 +1,53 @@
-import sys
-import time
+import select
 import logging
+import sys
 
-
-sys.path.append("..")
-
-from logs import server_log_config
-from socket import *
-from mainapp.data_transfer import get_data, send_data
-from additional_tools.log_decorator import log
+from socket import socket, AF_INET, SOCK_STREAM
+from utils.data_transfer import get_data, send_data
 
 logger = logging.getLogger('server')
 
 
-@log
-def process_presence_msg(data: dict):
+def read_requests(r_clients, all_clients):
     """
-    Проверка обязательных полей json объекта, необходимых для соответствия протоколу JIM
-    и формирование соответствующего словаря для ответа клиенту
+    Формирует словарь, содержащий объекты сокетов в качестве ключа и словарь с переданными данными
+    в качестве значения
+    :param r_clients:
+    :param all_clients:
+    :return:
     """
-    if 'action' in data and 'time' in data and 'user' in data \
-            and data['action'] == 'presence' and data['user']['account_name']:
-        msg = {
-            "response": 200,
-            "time": time.time(),
-            "alert": f"Привет {data['user']['account_name']}!"
-        }
-    else:
-        msg = {
-            "response": 400,
-            "time": time.time(),
-            "error": "Bad Request"
-        }
-    return msg
+    responses = {}
+
+    for sock in r_clients:
+        try:
+            data = get_data(sock)
+            responses[sock] = data
+        except:
+            sock.close()
+            all_clients.remove(sock)
+
+    return responses
+
+
+def write_responses(requests, w_clients, all_clients):
+    """
+    Проход по словарю с полученными данными и рассылка данных всем участникам
+    :param requests:
+    :param w_clients:
+    :param all_clients:
+    :return:
+    """
+    for message in requests.values():
+        for sock in w_clients:
+            try:
+                send_data(sock, message)
+            except:
+                sock.close()
+                all_clients.remove(sock)
 
 
 def main():
 
-    # Проверка и парсинг параметров командной строки
     try:
         if '-a' in sys.argv:
             listen_address = sys.argv[sys.argv.index('-a') + 1]
@@ -55,31 +65,42 @@ def main():
         logger.error(f'Port {listen_port} was entered. Available ports range from 1024 to 65535')
         sys.exit(1)
 
-    # Инициализация сокета на основании полученных параметров
+    address = (listen_address, listen_port)
+    clients = []
+
     s = socket(AF_INET, SOCK_STREAM)
-    s.bind((listen_address, listen_port))
+    s.bind(address)
     s.listen(5)
+    s.settimeout(0.2)
 
     while True:
-        client, addr = s.accept()
-        data = get_data(client)
-
-        logger.info(f'{data["action"]} message was sent by the client: {addr}'.capitalize())
-
-        answer_msg = process_presence_msg(data)
-
         try:
-            send_data(client, answer_msg)
-            logger.info(f'Response with a code {answer_msg["response"]} was sent to the client: {addr}')
-        except ValueError as e:
-            logger.error(e)
+            conn, addr = s.accept()
 
-        client.close()
+        except OSError as e:
+            pass
+        else:
+            logger.debug(f"Получен запрос на соединение от {str(addr)}")
+            clients.append(conn)
+        finally:
+            wait = 1
+            to_receive_list = []
+            to_send_list = []
+            try:
+                to_receive_list, to_send_list, e = select.select(clients, clients, [], wait)
+            except:
+                pass
+
+            requests = read_requests(to_receive_list, clients)
+            if requests:
+                write_responses(requests, to_send_list, clients)
 
 
 if __name__ == '__main__':
 
     try:
+        print('Сервер запущен')
+        logger.info('Сервер запущен')
         main()
     except Exception as e:
         logger.critical(e)
