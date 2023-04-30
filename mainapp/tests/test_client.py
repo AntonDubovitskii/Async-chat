@@ -1,5 +1,5 @@
 import unittest
-from mainapp.client import process_server_answer, generate_greeting
+from old.client_old import process_server_answer, generate_greeting
 
 
 class TestClient(unittest.TestCase):

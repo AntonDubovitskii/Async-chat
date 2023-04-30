@@ -1,7 +1,7 @@
 import unittest
 import time
 
-from mainapp.server import process_presence_msg
+from old.server_old import process_presence_msg
 
 
 class TestServer(unittest.TestCase):

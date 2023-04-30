@@ -1,7 +1,7 @@
 import json
 import unittest
 import time
-from mainapp.data_transfer import send_data, get_data
+from mainapp.utils.data_transfer import *
 
 
 class TestSocket:

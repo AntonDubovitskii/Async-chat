@@ -1,4 +1,0 @@
-2023-04-22 17:50:48,136 - INFO  server: Presence message was sent by the client: ('127.0.0.1', 38728) 
-2023-04-22 17:50:48,137 - DEBUG  log_decorator: Вызвана функция process_presence_msg с параметрами ({'action': 'presence', 'time': 1682171448.1340926, 'type': 'status', 'user': {'account_name': 'Anton_1993', 'status': 'I am here!'}},), {} 
-2023-04-22 17:50:48,137 - DEBUG  log_decorator: Функция process_presence_msg() вызвана из функции main 
-2023-04-22 17:50:48,138 - INFO  server: Response with a code 200 was sent to the client: ('127.0.0.1', 38728) 
