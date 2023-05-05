@@ -23,30 +23,17 @@ def generate_greeting(account_name='Guest'):
     return message
 
 
-def generate_common_chat_message(message, account_name='Guest', current_datetime=None):
+def generate_common_chat_message(message, account_name='Guest', destination='#', current_datetime=None):
     """
     Формирование словаря с msg-сообщением, который далее будет переведен
     в формат json и отправлен на сервер
     """
-    message = {
+    message_dict = {
         "action": "msg",
         "time": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
         "from": account_name,
+        "to": destination,
         "message": message
     }
-    return message
+    return message_dict
 
-
-def process_server_answer(data_dict):
-    """
-    Обработка ответа от сервера на presence-сообщение
-    """
-    if data_dict['response'] == 200:
-        logger.info(f'Server answer to presence message: {data_dict["response"]}')
-        return '200 OK'
-    elif data_dict['response'] == 400:
-        logger.error(f'Server answer to presence message: {data_dict["response"]}')
-        return '400 Bad Request'
-    else:
-        logger.error(f'Server answer to presence message: {data_dict["response"]}')
-        return 'Произошла неизвестная ошибка'
