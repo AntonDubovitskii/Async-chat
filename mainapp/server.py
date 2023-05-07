@@ -4,6 +4,8 @@ import sys
 
 from socket import socket, AF_INET, SOCK_STREAM
 from utils.data_transfer import get_data, send_data
+from utils.server_utils import *
+from logs import server_log_config
 
 logger = logging.getLogger('server')
 
@@ -29,21 +31,44 @@ def read_requests(r_clients, all_clients):
     return responses
 
 
-def write_responses(requests, w_clients, all_clients):
+def write_responses(requests, w_clients, all_clients, clients_registered):
     """
-    Проход по словарю с полученными данными и рассылка данных всем участникам
+    Проход по словарю с полученными данными выполнение дейтвий соответствующих типу полученного сообщения
     :param requests:
     :param w_clients:
     :param all_clients:
+    :param clients_registered:
     :return:
     """
-    for message in requests.values():
-        for sock in w_clients:
+
+    for message_sock, message in requests.items():
+        """
+        Проверка типа сообщения, в зависимости от этого сервер посылает сообщение дальше, всему чату, в лс, либо
+        генерирует ответ на приветствие
+        """
+        if identify_msg_type(message) == 'presense_msg':
+            clients_registered[message['user']['account_name']] = message_sock
+            send_data(message_sock, generate_presence_answer(message))
+            continue
+
+        elif identify_msg_type(message) == 'p2p_chat_msg':
             try:
-                send_data(sock, message)
+                if message['to'] in clients_registered:
+                    send_data(clients_registered[message['to']], message)
+                    send_data(message_sock, message)
+                else:
+                    send_data(message_sock, generate_no_user_error_msg(message))
             except:
-                sock.close()
-                all_clients.remove(sock)
+                message_sock.close()
+                all_clients.remove(message_sock)
+
+        elif identify_msg_type(message) == 'common_chat_msg':
+            for sock in w_clients:
+                try:
+                    send_data(sock, message)
+                except:
+                    sock.close()
+                    all_clients.remove(sock)
 
 
 def main():
@@ -66,7 +91,9 @@ def main():
         sys.exit(1)
 
     address = (listen_address, listen_port)
-    clients = []
+    clients_temp = []
+    # Словарь, временно имитирующий бд, где регистрируются пользователи
+    clients_registered = {}
 
     s = socket(AF_INET, SOCK_STREAM)
     s.bind(address)
@@ -81,23 +108,22 @@ def main():
             pass
         else:
             logger.debug(f"Получен запрос на соединение от {str(addr)}")
-            clients.append(conn)
+            clients_temp.append(conn)
         finally:
             wait = 1
             to_receive_list = []
             to_send_list = []
             try:
-                to_receive_list, to_send_list, e = select.select(clients, clients, [], wait)
+                to_receive_list, to_send_list, e = select.select(clients_temp, clients_temp, [], wait)
             except:
                 pass
 
-            requests = read_requests(to_receive_list, clients)
+            requests = read_requests(to_receive_list, clients_temp)
             if requests:
-                write_responses(requests, to_send_list, clients)
+                write_responses(requests, to_send_list, clients_temp, clients_registered)
 
 
 if __name__ == '__main__':
-
     try:
         print('Сервер запущен')
         logger.info('Сервер запущен')
