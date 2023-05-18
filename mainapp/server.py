@@ -7,7 +7,7 @@ import socket
 from utils.data_transfer import get_data, send_data
 from logs import server_log_config
 from utils.descriptors import Port
-from utils.metaclasses import ServerMeta
+from utils.metaclasses import ServerVerifier
 
 logger = logging.getLogger('server')
 
@@ -27,7 +27,7 @@ def arg_parser():
     return listen_address, listen_port
 
 
-class Server(metaclass=ServerMeta):
+class Server(metaclass=ServerVerifier):
 
     port = Port("port")
 

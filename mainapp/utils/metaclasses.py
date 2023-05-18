@@ -1,7 +1,7 @@
 import dis
 
 
-class ServerMeta(type):
+class ServerVerifier(type):
     """
     Метакласс для проверки соответствия сервера
     """
@@ -36,7 +36,7 @@ class ServerMeta(type):
         super().__init__(clsname, bases, clsdict)
 
 
-class ClientMeta(type):
+class ClientVerifier(type):
     """
     Метакласс для проверки корректности клиентов
     """

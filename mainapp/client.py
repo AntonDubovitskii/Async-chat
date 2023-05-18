@@ -8,12 +8,12 @@ from utils.data_transfer import get_data, send_data
 from utils.errors import *
 from datetime import datetime
 
-from utils.metaclasses import ClientMeta
+from utils.metaclasses import ClientVerifier
 
 logger = logging.getLogger('client')
 
 
-class Client(metaclass=ClientMeta):
+class Client(metaclass=ClientVerifier):
 
     def __init__(self, username, sock):
         self.username = username
