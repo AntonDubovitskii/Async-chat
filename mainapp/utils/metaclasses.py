@@ -26,7 +26,6 @@ class ServerVerifier(type):
                     elif i.opname == 'LOAD_ATTR':
                         if i.argval not in attrs:
                             attrs.append(i.argval)
-        print(methods)
         # При обнаружении недопустимого метода вызывается исключение
         if 'connect' in methods:
             raise TypeError('Использование метода connect недопустимо в серверном классе')
