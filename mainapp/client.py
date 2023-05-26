@@ -1,6 +1,7 @@
 import sys
 import logging
 import time
+from json import JSONDecodeError
 
 from socket import *
 from threading import Thread
@@ -53,6 +54,9 @@ class Client(metaclass=ClientVerifier):
         elif answer_dict['response'] == 400:
             logger.error(f'Server answer to presence message: {answer_dict["response"]}')
             return '400 Bad Request'
+        elif answer_dict['response'] == 409:
+            logger.error(f'Server answer to presence message: {answer_dict["response"]}')
+            return answer_dict['error']
         else:
             logger.error(f'Server answer to presence message: {answer_dict["response"]}')
             return 'Произошла неизвестная ошибка'
@@ -89,17 +93,33 @@ class Client(metaclass=ClientVerifier):
         }
         return message_dict
 
-    def read_from_socket(self, sock):
+    @classmethod
+    def generate_exit_message(cls, account_name):
+        """
+        Формирование словаря с exit-сообщением, который далее будет переведен
+        в формат json и отправлен на сервер
+        """
+        message = {
+            "action": "exit",
+            "time": time.time(),
+            "account_name": account_name,
+        }
+        return message
 
-        while True:
-            try:
-                data = get_data(sock)
-                if 'response' in data and data['response'] == 404:
-                    raise UserDoesNotExist
-                print(f"{data['time']} - {data['from']} : {data['message']}")
-            except UserDoesNotExist as e:
-                print(e)
-                break
+    def read_from_socket(self, sock):
+        try:
+            while True:
+                try:
+                    data = get_data(sock)
+                    if 'response' in data and int(data['response']) in (400, 404, 410):
+                        raise ServerError(data['error'])
+
+                    print(f"{data['time']} - {data['from']} : {data['message']}")
+                except ServerError as e:
+                    print(e)
+                    break
+        except JSONDecodeError:
+            exit(1)
 
     def write_to_socket(self, sock, name):
         """
@@ -116,7 +136,9 @@ class Client(metaclass=ClientVerifier):
         while True:
             msg = input('')
             if msg == '/exit':
-                break
+                dict_msg = Client.generate_exit_message(name)
+                send_data(sock, dict_msg)
+                exit(1)
             try:
                 if msg == '/pm':
                     to_whom = input('Введите имя того, кому хотите написать:\n')

@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, List
+from typing import List
 
 from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
@@ -16,18 +16,17 @@ class ServerStorage:
         __tablename__ = 'user_account'
         id: Mapped[int] = mapped_column(primary_key=True)
         login: Mapped[str] = mapped_column(String(50))
-        info: Mapped[Optional[str]]
+        last_login: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now())
         session: Mapped[List["LoginSessions"]] = relationship(back_populates='account')
         active: Mapped["ActiveUsers"] = relationship(back_populates='account')
 
-        def __init__(self, login, info):
+        def __init__(self, login):
             super().__init__()
             self.login = login
-            self.info = info
             self.id = None
 
         def __repr__(self):
-            return f'Login: {self.login}, Info: {self.info}'
+            return f'Login: {self.login}, Date: {self.last_login}'
 
     class ActiveUsers(Base):
         __tablename__ = 'active_user'
@@ -68,7 +67,7 @@ class ServerStorage:
             return f'Saved session, ip_address: {self.ip_address}, port: {self.port}, time: {self.login_time}'
 
     def __init__(self):
-        self.engine = create_engine('sqlite:///db.sqlite', echo=True, pool_recycle=7200)
+        self.engine = create_engine('sqlite:///db.sqlite', echo=False, pool_recycle=7200)
         if not database_exists(self.engine.url):
             create_database(self.engine.url)
 
@@ -80,14 +79,15 @@ class ServerStorage:
         self.session.query(self.ActiveUsers).delete()
         self.session.commit()
 
-    def user_login(self, login, ip_address, port, info=''):
+    def user_login(self, login, ip_address, port):
 
         rez = self.session.query(self.Users).filter_by(login=login)
 
         if rez.count():
             user = rez.first()
+            user.last_login = datetime.datetime.now()
         else:
-            user = self.Users(login, info)
+            user = self.Users(login)
             self.session.add(user)
             self.session.commit()
 
@@ -109,6 +109,7 @@ class ServerStorage:
     def users_list(self):
         query = self.session.query(
             self.Users.login,
+            self.Users.last_login
         )
         return query.all()
 
@@ -138,12 +139,12 @@ if __name__ == '__main__':
 
     test_db = ServerStorage()
 
-    test_db.user_login('client_1', '192.168.1.4', 8888)
-    test_db.user_login('client_2', '192.168.1.5', 7777)
-
-    print(test_db.active_users_list())
-
-    test_db.user_logout('client_1')
+    # test_db.user_login('client_1', '192.168.1.4', 8888)
+    # test_db.user_login('client_2', '192.168.1.5', 7777)
+    #
+    # print(test_db.active_users_list())
+    #
+    # test_db.user_logout('client_1')
 
     print(test_db.active_users_list())
 
