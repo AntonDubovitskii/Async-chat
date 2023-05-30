@@ -1,14 +1,13 @@
 import datetime
-from typing import Optional, List
+from typing import List
 
-from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey
+from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.sql import func
 from sqlalchemy_utils import database_exists, create_database
 
 
 class ServerStorage:
-
     class Base(DeclarativeBase):
         pass
 
@@ -16,18 +15,18 @@ class ServerStorage:
         __tablename__ = 'user_account'
         id: Mapped[int] = mapped_column(primary_key=True)
         login: Mapped[str] = mapped_column(String(50))
-        info: Mapped[Optional[str]]
+        last_login: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now())
         session: Mapped[List["LoginSessions"]] = relationship(back_populates='account')
         active: Mapped["ActiveUsers"] = relationship(back_populates='account')
+        history: Mapped[List["UsersHistory"]] = relationship(back_populates='account')
 
-        def __init__(self, login, info):
+        def __init__(self, login):
             super().__init__()
             self.login = login
-            self.info = info
             self.id = None
 
         def __repr__(self):
-            return f'Login: {self.login}, Info: {self.info}'
+            return f'Login: {self.login}, Date: {self.last_login}'
 
     class ActiveUsers(Base):
         __tablename__ = 'active_user'
@@ -67,10 +66,43 @@ class ServerStorage:
         def __repr__(self):
             return f'Saved session, ip_address: {self.ip_address}, port: {self.port}, time: {self.login_time}'
 
+    class UsersContacts(Base):
+        __tablename__ = 'contacts'
+        id: Mapped[int] = mapped_column(primary_key=True)
+
+        user_id = mapped_column(Integer, ForeignKey('user_account.id'))
+        contact_id = mapped_column(Integer, ForeignKey('user_account.id'))
+
+        user = relationship("Users", foreign_keys="[UsersContacts.user_id]")
+        contact = relationship("Users", foreign_keys="[UsersContacts.contact_id]")
+
+        def __init__(self, user_id, contact_id):
+            super().__init__()
+            self.id = None
+            self.user_id = user_id
+            self.contact_id = contact_id
+
+    class UsersHistory(Base):
+        __tablename__ = 'users_history'
+        id: Mapped[int] = mapped_column(primary_key=True)
+        user: Mapped[int] = mapped_column(ForeignKey('user_account.id'))
+        sent: Mapped[int] = mapped_column(INT)
+        accepted: Mapped[int] = mapped_column(INT)
+        account: Mapped["Users"] = relationship(back_populates='history')
+
+        def __init__(self, user):
+            super().__init__()
+            self.id = None
+            self.user = user
+            self.sent = 0
+            self.accepted = 0
+
+        def __repr__(self):
+            return f'User: {self.user}, send: {self.sent}, accepted: {self.accepted}'
+
     def __init__(self):
-        self.engine = create_engine('sqlite:///db.sqlite', echo=True, pool_recycle=7200)
-        if not database_exists(self.engine.url):
-            create_database(self.engine.url)
+        self.engine = create_engine(f'sqlite:///server_db.db3', echo=False, pool_recycle=7200,
+                                    connect_args={'check_same_thread': False})
 
         self.Base.metadata.create_all(self.engine)
 
@@ -80,16 +112,20 @@ class ServerStorage:
         self.session.query(self.ActiveUsers).delete()
         self.session.commit()
 
-    def user_login(self, login, ip_address, port, info=''):
+    def user_login(self, login, ip_address, port):
 
         rez = self.session.query(self.Users).filter_by(login=login)
 
         if rez.count():
             user = rez.first()
+            user.last_login = datetime.datetime.now()
         else:
-            user = self.Users(login, info)
+            user = self.Users(login)
             self.session.add(user)
             self.session.commit()
+
+            user_in_history = self.UsersHistory(user.id)
+            self.session.add(user_in_history)
 
         new_active_user = self.ActiveUsers(user.id, ip_address, port, datetime.datetime.now())
         self.session.add(new_active_user)
@@ -101,7 +137,7 @@ class ServerStorage:
 
     def user_logout(self, username):
         user = self.session.query(self.Users).filter_by(login=username).first()
-
+        print(user.login)
         self.session.query(self.ActiveUsers).filter_by(account_id=user.id).delete()
 
         self.session.commit()
@@ -109,6 +145,7 @@ class ServerStorage:
     def users_list(self):
         query = self.session.query(
             self.Users.login,
+            self.Users.last_login
         )
         return query.all()
 
@@ -133,21 +170,76 @@ class ServerStorage:
             query = query.filter(self.Users.login == username)
         return query.all()
 
+    def process_message(self, sender, recipient):
+
+        sender = self.session.query(self.Users).filter_by(login=sender).first().id
+        recipient = self.session.query(self.Users).filter_by(login=recipient).first().id
+
+        sender_row = self.session.query(self.UsersHistory).filter_by(user=sender).first()
+        sender_row.sent += 1
+        recipient_row = self.session.query(self.UsersHistory).filter_by(user=recipient).first()
+        recipient_row.accepted += 1
+
+        self.session.commit()
+
+    def message_history(self):
+        query = self.session.query(
+            self.Users.login,
+            self.Users.last_login,
+            self.UsersHistory.sent,
+            self.UsersHistory.accepted
+        ).join(self.Users)
+        return query.all()
+
+    def add_contact(self, username, contact_name):
+
+        user = self.session.query(self.Users).filter_by(login=username).first()
+        contact = self.session.query(self.Users).filter_by(login=contact_name).first()
+
+        if not contact or self.session.query(self.UsersContacts).filter_by(user_id=user.id, contact_id=contact.id).count():
+            return
+
+        contact_row = self.UsersContacts(user.id, contact.id)
+        self.session.add(contact_row)
+        self.session.commit()
+
+    def remove_contact(self, username, contact_name):
+
+        user = self.session.query(self.Users).filter_by(login=username).first()
+        contact = self.session.query(self.Users).filter_by(login=contact_name).first()
+
+        if not contact:
+            return
+
+        self.session.query(self.UsersContacts).filter(
+            self.UsersContacts.user_id == user.id,
+            self.UsersContacts.contact_id == contact.id
+        ).delete()
+        self.session.commit()
+
+    def get_contacts(self, username):
+
+        user = self.session.query(self.Users).filter_by(login=username).one()
+
+        query = self.session.query(self.UsersContacts, self.Users.login).filter_by(user_id=user.id).join(self.Users, self.UsersContacts.contact_id == self.Users.id)
+
+        return [contact[1] for contact in query.all()]
+
 
 if __name__ == '__main__':
-
     test_db = ServerStorage()
-
-    test_db.user_login('client_1', '192.168.1.4', 8888)
-    test_db.user_login('client_2', '192.168.1.5', 7777)
-
+    test_db.user_login('Tom', '192.168.1.113', 8080)
+    test_db.user_login('Tim', '192.168.1.113', 8081)
+    # print(test_db.users_list())
     print(test_db.active_users_list())
-
-    test_db.user_logout('client_1')
-
-    print(test_db.active_users_list())
-
-    test_db.login_history('client_1')
-
-    print(test_db.users_list())
+    test_db.user_logout('Tom')
+    print(test_db.login_history('Tom'))
+    test_db.add_contact('Tom', 'Tim')
+    test_db.add_contact('Tim', 'Tom')
+    test_db.add_contact('test1', 'test2')
+    test_db.remove_contact('test1', 'test2')
+    test_db.process_message('Tom', 'Tim')
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    print(test_db.get_contacts('Tom'))
+    # print(test_db.message_history())
 
