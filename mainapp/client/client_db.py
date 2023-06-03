@@ -1,4 +1,5 @@
 import datetime
+import os
 from typing import List
 
 from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey, TEXT
@@ -56,7 +57,9 @@ class ClientDatabase:
             return f'Contact name: {self.name}'
 
     def __init__(self, name):
-        self.engine = create_engine(f'sqlite:///client_{name}.db3', echo=False, pool_recycle=7200,
+        path = os.path.dirname(os.path.realpath(__file__))
+        filename = f'client_{name}.db3'
+        self.engine = create_engine(f'sqlite:///{os.path.join(path, filename)}', echo=False, pool_recycle=7200,
                                     connect_args={'check_same_thread': False})
 
         self.Base.metadata.create_all(self.engine)

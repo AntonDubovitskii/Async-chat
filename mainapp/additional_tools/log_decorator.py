@@ -12,7 +12,7 @@ def log(func):
         upper_func_info = f'Функция {func.__name__}() вызвана из функции {inspect.stack()[1][3]}'
         # В зависимости от файла выбираем правильный логгер, если файл не из проекта, то просто выводим в консоль
         match pyfile:
-            case 'client_old.py':
+            case 'console_client.py':
                 logger = logging.getLogger('client')
             case 'server_old.py':
                 logger = logging.getLogger('server')

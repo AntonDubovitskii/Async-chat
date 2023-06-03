@@ -227,7 +227,6 @@ class Server(threading.Thread, metaclass=ServerVerifier):
                     try:
                         if message['to'] in clients_registered:
                             send_data(clients_registered[message['to']], message)
-                            send_data(message_sock, message)
                             self.database.process_message(message['from'], message['to'])
                         else:
                             send_data(message_sock, Server.generate_no_user_error_msg(message))
@@ -464,6 +463,5 @@ if __name__ == '__main__':
         logger.info('Сервер запущен')
         main()
     except Exception as e:
-        print("\n", e)
         logger.critical(e)
 
