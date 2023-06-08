@@ -19,7 +19,7 @@ while True:
             for i in range(int(user_input)):
                 subprocess_list.append(
                     subprocess.Popen(
-                        "python console_client.py", creationflags=subprocess.CREATE_NEW_CONSOLE
+                        "python client.py", creationflags=subprocess.CREATE_NEW_CONSOLE
                     )
                 )
 
