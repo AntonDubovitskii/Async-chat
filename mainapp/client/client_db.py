@@ -4,8 +4,6 @@ from typing import List
 
 from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey, TEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
-from sqlalchemy.sql import func
-from sqlalchemy_utils import database_exists, create_database
 
 
 class ClientDatabase:
@@ -76,6 +74,9 @@ class ClientDatabase:
             self.session.add(contact_row)
             self.session.commit()
 
+    def contacts_clear(self):
+        self.session.query(self.Contacts).delete()
+
     def del_contact(self, contact):
         self.session.query(self.Contacts).filter_by(name=contact).delete()
 
@@ -136,3 +137,4 @@ if __name__ == '__main__':
     print(test_db.get_history('test3'))
     test_db.del_contact('test4')
     print(test_db.get_contacts())
+

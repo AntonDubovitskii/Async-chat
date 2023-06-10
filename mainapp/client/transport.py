@@ -1,3 +1,6 @@
+import binascii
+import hashlib
+import hmac
 import sys
 import logging
 import threading
@@ -6,7 +9,7 @@ import time
 from json import JSONDecodeError
 from PyQt5.QtCore import pyqtSignal, QObject
 from socket import *
-from utils.data_transfer import get_data, send_data
+from utils.data_transfer import get_data, send_data, generate_auth_service_msg
 from utils.errors import *
 from datetime import datetime
 from logs import client_log_config
@@ -19,14 +22,17 @@ sock_lock = threading.Lock()
 
 
 class Client(threading.Thread, QObject):
-    new_message = pyqtSignal(str)
+    new_message = pyqtSignal(dict)
+    message_205 = pyqtSignal()
     connection_lost = pyqtSignal()
 
-    def __init__(self, port, ip_address, database, username):
+    def __init__(self, port, ip_address, database, username, passwd, keys):
         threading.Thread.__init__(self)
         QObject.__init__(self)
 
         self.username = username
+        self.password = passwd
+        self.keys = keys
         self.sock = None
         self.database = database
         self.connection_init(port, ip_address)
@@ -67,18 +73,41 @@ class Client(threading.Thread, QObject):
 
         logger.debug('Установлено соединение с сервером')
 
-        try:
-            with sock_lock:
-                send_data(self.sock, self.generate_greeting())
-                self.server_response_parsing(get_data(self.sock))
+        password_encoded = self.password.encode('utf-8')
+        salt = self.username.lower().encode('utf-8')
+        passwd_hash = hashlib.pbkdf2_hmac('sha256', password_encoded, salt, 100000)
+        password_hex = binascii.hexlify(passwd_hash)
 
-        except (OSError, JSONDecodeError):
-            logger.critical('Потеряно соединение с сервером!')
-            raise ServerError('Потеряно соединение с сервером!')
+        pubkey = self.keys.publickey().export_key().decode('ascii')
 
-        logger.info('Соединение с сервером успешно установлено.')
+        with sock_lock:
+            presense = self.generate_greeting(pubkey)
+            logger.debug(f"Presense message = {presense}")
 
-    def generate_greeting(self):
+            try:
+                send_data(self.sock, presense)
+                answer = get_data(self.sock)
+                logger.debug(f'Server response = {answer}.')
+
+                if 'response' in answer:
+                    if answer['response'] == 400:
+                        raise ServerError(answer['error'])
+                    elif answer['response'] == 511:
+                        ans_data = answer['data']
+                        hash = hmac.new(password_hex, ans_data.encode('utf-8'), 'MD5')
+                        digest = hash.digest()
+                        my_ans = generate_auth_service_msg()
+                        my_ans['data'] = binascii.b2a_base64(digest).decode('ascii')
+                        send_data(self.sock, my_ans)
+                        self.server_response_parsing(get_data(self.sock))
+
+            except (OSError, JSONDecodeError):
+                logger.critical('Потеряно соединение с сервером!')
+                raise ServerError('Потеряно соединение с сервером!')
+
+            logger.info('Соединение с сервером успешно установлено.')
+
+    def generate_greeting(self, pubkey):
         """
         Формирование словаря с presence-сообщением, который далее будет переведен
         в формат json и отправлен на сервер
@@ -89,7 +118,7 @@ class Client(threading.Thread, QObject):
             "type": "status",
             "user": {
                 "account_name": self.username,
-                "status": "I am here!"
+                "public_key": pubkey
             }
         }
         logger.debug(f'Сформировано presence сообщение для пользователя {self.username}')
@@ -133,19 +162,23 @@ class Client(threading.Thread, QObject):
                 raise ServerError(f'{message_dict["error"]}')
             elif message_dict['response'] == 409:
                 raise ServerError(f'{message_dict["error"]}')
+            elif message_dict['response'] == 205:
+                self.user_list_update()
+                self.contacts_list_update()
+                self.message_205.emit()
             else:
                 logger.debug(f'Принят неизвестный код подтверждения {message_dict["response"]}')
 
-        elif "action" in message_dict and message_dict["action"] == "message" and "from" in message_dict \
+        elif "action" in message_dict and message_dict["action"] == "msg" and "from" in message_dict \
                 and "to" in message_dict and "message" in message_dict and message_dict["to"] == self.username:
 
             logger.debug(f'Получено сообщение от пользователя {message_dict["from"]}:{message_dict["message"]}')
 
-        self.database.save_message(message_dict["from"], 'in' , message_dict["message"])
-        self.new_message.emit(message_dict["from"])
+            self.new_message.emit(message_dict)
 
     def contacts_list_update(self):
-        logger.debug(f'Запрос контакт листа для пользователся {self.username}')
+        self.database.contacts_clear()
+        logger.debug(f'Запрос контакт листа для пользователя {self.username}')
         request = {
             'action': 'get_contacts',
             'time': time.time(),
@@ -201,10 +234,26 @@ class Client(threading.Thread, QObject):
             send_data(self.sock, req)
             self.server_response_parsing(get_data(self.sock))
 
+    def key_request(self, user):
+        logger.debug(f'Запрос публичного ключа для {user}')
+        req = {
+            'action': 'public_key_request',
+            'time': time.time(),
+            'account_name': user
+        }
+        with sock_lock:
+            send_data(self.sock, req)
+            ans = get_data(self.sock)
+        if 'response' in ans and ans['response'] == 511:
+            return ans['data']
+        else:
+            logger.error(f'Не удалось получить ключ собеседника{user}.')
+
     def run(self):
         logger.debug('Запущен процесс - приёмник собщений с сервера.')
         while self.running:
             time.sleep(1)
+            message = None
             with sock_lock:
                 try:
                     self.sock.settimeout(0.5)
@@ -218,9 +267,10 @@ class Client(threading.Thread, QObject):
                     logger.debug(f'Потеряно соединение с сервером.')
                     self.running = False
                     self.connection_lost.emit()
-                else:
-                    logger.debug(f'Принято сообщение с сервера: {message}')
-                    self.server_response_parsing(message)
                 finally:
                     self.sock.settimeout(5)
+
+            if message:
+                logger.debug(f'Принято сообщение с сервера: {message}')
+                self.server_response_parsing(message)
 

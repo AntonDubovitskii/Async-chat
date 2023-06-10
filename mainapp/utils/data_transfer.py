@@ -1,4 +1,5 @@
 import json
+import time
 
 
 def get_data(soc, length=100000, encoding='utf-8'):
@@ -23,6 +24,15 @@ def send_data(soc, data: dict):
     objs = json.dumps(data)
     encoded_objs = objs.encode('utf-8')
     soc.send(encoded_objs)
+
+
+def generate_auth_service_msg():
+    msg = {
+        "response": 511,
+        "time": time.time(),
+        "data": None
+    }
+    return msg
 
 
 

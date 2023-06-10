@@ -1,10 +1,10 @@
 import datetime
+import os
 from typing import List
 
-from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey, Integer
+from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey, Integer, TEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.sql import func
-from sqlalchemy_utils import database_exists, create_database
 
 
 class ServerStorage:
@@ -16,14 +16,19 @@ class ServerStorage:
         id: Mapped[int] = mapped_column(primary_key=True)
         login: Mapped[str] = mapped_column(String(50))
         last_login: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now())
+        pubkey: Mapped[str] = mapped_column(TEXT, nullable=True)
+        passwd_hash: Mapped[str] = mapped_column(String)
+
         session: Mapped[List["LoginSessions"]] = relationship(back_populates='account')
         active: Mapped["ActiveUsers"] = relationship(back_populates='account')
         history: Mapped[List["UsersHistory"]] = relationship(back_populates='account')
 
-        def __init__(self, login):
+        def __init__(self, login, passwd_hash):
             super().__init__()
             self.login = login
             self.id = None
+            self.pubkey = None
+            self.passwd_hash = passwd_hash
 
         def __repr__(self):
             return f'Login: {self.login}, Date: {self.last_login}'
@@ -100,8 +105,8 @@ class ServerStorage:
         def __repr__(self):
             return f'User: {self.user}, send: {self.sent}, accepted: {self.accepted}'
 
-    def __init__(self):
-        self.engine = create_engine(f'sqlite:///server_db.db3', echo=False, pool_recycle=7200,
+    def __init__(self, path):
+        self.engine = create_engine(f'sqlite:///{path}', echo=False, pool_recycle=7200,
                                     connect_args={'check_same_thread': False})
 
         self.Base.metadata.create_all(self.engine)
@@ -112,28 +117,66 @@ class ServerStorage:
         self.session.query(self.ActiveUsers).delete()
         self.session.commit()
 
-    def user_login(self, login, ip_address, port):
+    def user_login(self, login, ip_address, port, key):
 
         rez = self.session.query(self.Users).filter_by(login=login)
 
         if rez.count():
             user = rez.first()
             user.last_login = datetime.datetime.now()
+            if user.pubkey != key:
+                user.pubkey = key
         else:
-            user = self.Users(login)
-            self.session.add(user)
-            self.session.commit()
+            raise ValueError('Пользователь не зарегистрирован.')
 
-            user_in_history = self.UsersHistory(user.id)
-            self.session.add(user_in_history)
-
-        new_active_user = self.ActiveUsers(user.id, ip_address, port, datetime.datetime.now())
+        new_active_user = self.ActiveUsers(
+            user.id, ip_address, port, datetime.datetime.now())
         self.session.add(new_active_user)
 
-        history = self.LoginSessions(user.id, datetime.datetime.now(), ip_address, port)
+        history = self.LoginSessions(
+            user.id, datetime.datetime.now(), ip_address, port)
         self.session.add(history)
 
         self.session.commit()
+
+    def add_user(self, name, passwd_hash):
+        '''
+        Метод регистрации пользователя.
+        Принимает имя и хэш пароля, создаёт запись в таблице статистики.
+        '''
+        user_row = self.Users(name, passwd_hash)
+        self.session.add(user_row)
+        self.session.commit()
+        history_row = self.UsersHistory(user_row.id)
+        self.session.add(history_row)
+        self.session.commit()
+
+    def remove_user(self, name):
+        user = self.session.query(self.Users).filter_by(login=name).first()
+        self.session.query(self.ActiveUsers).filter_by(account_id=user.id).delete()
+        self.session.query(self.LoginSessions).filter_by(name=user.id).delete()
+        self.session.query(self.UsersContacts).filter_by(user_id=user.id).delete()
+        self.session.query(
+            self.UsersContacts).filter_by(
+            contact_id=user.id).delete()
+        self.session.query(self.UsersHistory).filter_by(user=user.id).delete()
+        self.session.query(self.Users).filter_by(login=name).delete()
+        self.session.commit()
+
+    def get_hash(self, name):
+        '''Метод получения хэша пароля пользователя.'''
+        user = self.session.query(self.Users).filter_by(login=name).first()
+        return user.passwd_hash
+
+    def get_pubkey(self, name):
+        user = self.session.query(self.Users).filter_by(login=name).first()
+        return user.pubkey
+
+    def check_user(self, name):
+        if self.session.query(self.Users).filter_by(login=name).count():
+            return True
+        else:
+            return False
 
     def user_logout(self, username):
         user = self.session.query(self.Users).filter_by(login=username).first()
@@ -228,6 +271,7 @@ class ServerStorage:
 
 if __name__ == '__main__':
     test_db = ServerStorage()
+
     test_db.user_login('Tom', '192.168.1.113', 8080)
     test_db.user_login('Tim', '192.168.1.113', 8081)
     # print(test_db.users_list())
