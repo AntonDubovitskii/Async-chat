@@ -16,24 +16,24 @@ logger = logging.getLogger('client')
 
 
 def arg_parser():
-
+    """Парсер аргументов коммандной строки."""
     parser = argparse.ArgumentParser()
     parser.add_argument('addr', default='127.0.0.1', nargs='?')
     parser.add_argument('port', default='7777', type=int, nargs='?')
     parser.add_argument('-n', '--name', default=None, nargs='?')
     parser.add_argument('-p', '--password', default='', nargs='?')
     namespace = parser.parse_args(sys.argv[1:])
-    server_address = namespace.addr
-    server_port = namespace.port
-    client_name = namespace.name
-    client_passwd = namespace.password
+    address = namespace.addr
+    port = namespace.port
+    name = namespace.name
+    password = namespace.password
 
     if not 1023 < server_port < 65536:
         logger.critical(
             f'Попытка запуска клиента с неподходящим номером порта: {server_port}. Допустимы адреса с 1024 до 65535. Клиент завершается.')
         exit(1)
 
-    return server_address, server_port, client_name, client_passwd
+    return address, port, name, password
 
 
 if __name__ == '__main__':
@@ -84,4 +84,3 @@ if __name__ == '__main__':
 
     transport.transport_shutdown()
     transport.join()
-

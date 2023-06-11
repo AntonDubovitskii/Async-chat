@@ -1,21 +1,13 @@
 import argparse
 import configparser
 import os
-import select
 import logging
 import sys
-import time
-import socket
-import threading
-from json import JSONDecodeError
-
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt
 
 from server.main_window import MainWindow
 from server.server_core import ServerMsgProc
-from utils.descriptors import Port
 from server.server_db import ServerStorage
+from logs import server_log_config
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
@@ -24,7 +16,7 @@ logger = logging.getLogger('server')
 
 
 def arg_parser(default_port, default_address):
-    '''Парсер аргументов коммандной строки.'''
+    """Парсер аргументов коммандной строки."""
     logger.debug(
         f'Инициализация парсера аргументов коммандной строки: {sys.argv}')
     parser = argparse.ArgumentParser()
@@ -40,6 +32,7 @@ def arg_parser(default_port, default_address):
 
 
 def config_load():
+    """Парсер конфигурационного файла."""
     config = configparser.ConfigParser()
     dir_path = os.path.dirname(os.path.realpath(__file__))
     config.read(f"{dir_path}/{'server.ini'}")
@@ -56,7 +49,7 @@ def config_load():
 
 
 def main():
-
+    """Основная функция."""
     config = config_load()
 
     listen_address, listen_port, gui_flag = arg_parser(
@@ -92,4 +85,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

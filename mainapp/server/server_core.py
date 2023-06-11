@@ -6,8 +6,8 @@ import logging
 import time
 import socket
 import threading
-from json import JSONDecodeError
 
+from json import JSONDecodeError
 from utils.data_transfer import get_data, send_data, generate_auth_service_msg
 from utils.descriptors import Port
 from utils.metaclasses import ServerVerifier
@@ -18,7 +18,11 @@ logger = logging.getLogger('server')
 
 
 class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
-
+    """
+    Основной класс сервера. Принимает соединения, словари - пакеты
+    от клиентов, обрабатывает поступающие сообщения.
+    Работает в качестве отдельного потока.
+    """
     port = Port("port")
 
     def __init__(self, listen_ipaddress, listen_port, database):
@@ -33,6 +37,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_presence_answer(cls, data: dict):
+        """Метод, генерирующий словарь-ответ на корректное presence-сообщение от клиента."""
         if not isinstance(data, dict):
             raise ValueError
         msg = {
@@ -43,19 +48,23 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
         return msg
 
     @classmethod
-    def generate_name_taken_error_msg(cls, data:dict):
+    def generate_name_taken_error_msg(cls, data: dict):
+        """
+        Метод, генерирующий словарь-ответ,
+        информирующий о возникновении ошибки с кодом 409 - имя пользователя занято.
+        """
         if not isinstance(data, dict):
             raise ValueError
         msg = {
             "response": 409,
             "time": time.time(),
-            # "error": f"Ошибка 409! Имя пользователя {data['from']} уже занято!"
             "error": "Ошибка 409! Имя пользователя уже занято!"
         }
         return msg
 
     @classmethod
     def generate_200_ok_answer(cls):
+        """Метод, генерирующий общее сообщение с кодом 200."""
         msg = {
             "response": 200,
             "time": time.time(),
@@ -65,6 +74,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_contact_list_answer(cls, name, db: ServerStorage):
+        """Метод, генерирующий ответ на запрос списка контактов."""
         msg = {
             "response": 202,
             "time": time.time(),
@@ -74,6 +84,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_known_users_answer(cls, db: ServerStorage):
+        """Метод, генерирующий ответ на запрос списка известных пользователей."""
         msg = {
             "response": 202,
             "time": time.time(),
@@ -83,6 +94,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_invalid_request_error_msg(cls):
+        """Метод, генерирующий общее сообщение об ошибке с кодом 400."""
         msg = {
             "response": 400,
             "time": time.time(),
@@ -92,6 +104,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_no_user_error_msg(cls, data: dict):
+        """Метод, генерирующий сообщение об ошибке 404 - указанный пользователь не зарегистрирован."""
         if not isinstance(data, dict):
             raise ValueError
         msg = {
@@ -103,6 +116,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_user_not_online_error_msg(cls, data: dict):
+        """Метод, генерирующий сообщение об ошибке 410 - пользователь не в сети."""
         if not isinstance(data, dict):
             raise ValueError
         msg = {
@@ -115,9 +129,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
     @classmethod
     def identify_msg_type(cls, data: dict):
         """
-        Проверка типа пришедшего сообщения
-        :param data:
-        :return:
+        Метод, выполняющий проверку типа сообщения, принятого сервером.
         """
         if not isinstance(data, dict):
             raise ValueError
@@ -150,10 +162,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     def read_requests(self, r_clients):
         """
-        Формирует словарь, содержащий объекты сокетов в качестве ключа и словарь с переданными данными
-        в качестве значения
-        :param r_clients:
-        :return:
+        Формирует словарь, содержащий объекты сокетов в качестве ключа
+        и словарь с переданными данными в качестве значения.
         """
         responses = {}
 
@@ -167,9 +177,9 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     def process_responses(self, requests, w_clients):
         """
-        Проход по словарю с полученными данными выполнение дейтвий соответствующих типу полученного сообщения
+        Метод, реализующий проход по словарю с полученными данными и
+        выполняющий действия, соответствующие типу полученного сообщения.
         """
-
         for message_sock, message in requests.items():
             """
             Проверка типа сообщения, в зависимости от этого сервер посылает сообщение дальше, всему чату, в лс, либо
@@ -258,6 +268,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
                     send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
 
     def authorize_user(self, message, sock):
+        """Метод, реализующий авторизацию пользователей."""
         logger.debug(f'Start auth process for {message["user"]}')
         if message['user']['account_name'] in self.clients_registered.keys():
             response = ServerMsgProc.generate_name_taken_error_msg(message)
@@ -319,7 +330,10 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
                 sock.close()
 
     def remove_client(self, client):
-
+        """
+        Метод обработчик клиента с которым прервана связь.
+        Ищет клиента и удаляет его из списков и базы данных.
+        """
         logger.info(f'Клиент {client.getpeername()} отключился от сервера.')
         for name in self.clients_registered:
             if self.clients_registered[name] == client:
@@ -330,6 +344,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
         client.close()
 
     def init_socket(self):
+        """Метод, инициализирующий сокет."""
         logger.info(
             f'Запущен сервер, порт для подключений: {self.port} , адрес с которого принимаются подключения: {self.addr}.'
             f' Если адрес не указан, принимаются соединения с любых адресов.')
@@ -344,6 +359,7 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
         self.sock.listen()
 
     def service_update_lists(self):
+        """Метод, реализующий отправку клиентам сервисного сообщения 205."""
         response = {'response': 205, "time": time.time()}
         for client in self.clients_registered:
             try:
@@ -352,12 +368,12 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
                 self.remove_client(self.clients_registered[client])
 
     def run(self):
+        """Метод основной цикл потока."""
         self.init_socket()
 
         while True:
             try:
                 self.conn, self.addr = self.sock.accept()
-
             except OSError as e:
                 pass
             else:
@@ -375,4 +391,3 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
                 requests = self.read_requests(to_receive_list)
                 if requests:
                     self.process_responses(requests, to_send_list)
-

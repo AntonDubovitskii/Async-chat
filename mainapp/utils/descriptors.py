@@ -1,9 +1,14 @@
 import logging
+
 logger = logging.getLogger('server')
 
 
 # Дескриптор для описания порта:
 class Port:
+    """
+    Класс дескриптор для номера порта.
+    При попытке установить некорректное значение, генерирует исключение.
+    """
     def __init__(self, name):
         self.name = name
 
@@ -15,4 +20,3 @@ class Port:
             exit(1)
         # Если порт прошел проверку, добавляем его в список атрибутов экземпляра
         instance.__dict__[self.name] = value
-

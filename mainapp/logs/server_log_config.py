@@ -5,7 +5,6 @@ import os
 log_path = os.path.dirname(os.path.abspath(__file__))
 log_path = os.path.join(log_path, 'server_logs/server.log')
 
-
 logger_server = logging.getLogger('server')
 
 formatter_server = logging.Formatter("%(asctime)s - %(levelname)s  %(module)s: %(message)s ")
@@ -19,4 +18,3 @@ logger_server.setLevel(logging.DEBUG)
 
 if __name__ == '__main__':
     logger_server.debug('testing server logging system')
-
