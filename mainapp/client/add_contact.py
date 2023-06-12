@@ -1,15 +1,22 @@
 import sys
 import logging
 
-sys.path.append('../')
-from PyQt5.QtWidgets import QDialog, QLabel, QComboBox, QPushButton
-from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QDialog, QLabel, QComboBox, QPushButton
+
+
+sys.path.append('../')
 
 logger = logging.getLogger('client')
 
 
 class AddContactDialog(QDialog):
+    """
+    Реализация диалога добавления пользователя в контакты.
+    Пользователь получает список возможных контактов и выбирает один из них.
+    """
+
     def __init__(self, transport, database):
         super().__init__()
         self.transport = transport
@@ -45,6 +52,11 @@ class AddContactDialog(QDialog):
         self.btn_refresh.clicked.connect(self.update_possible_contacts)
 
     def possible_contacts_update(self):
+        """
+        Метод, обновляющий список зарегистрированных пользователей,
+        которых пользователь может добавить себе в контакты.
+        В список не включается сам запрашивающий пользователь и контакты, которые у него уже есть.
+        """
         self.selector.clear()
         contacts_list = set(self.database.get_contacts())
         users_list = set(self.database.get_users())
@@ -54,6 +66,10 @@ class AddContactDialog(QDialog):
         self.selector.addItems(users_list - contacts_list)
 
     def update_possible_contacts(self):
+        """
+        Метод обновления списка известных пользователей. Запрашивает с сервера
+        список известных пользователей и обновляет содержимое окна.
+        """
         try:
             self.transport.user_list_update()
         except OSError:
@@ -61,4 +77,3 @@ class AddContactDialog(QDialog):
         else:
             logger.debug('Обновление списка пользователей с сервера выполнено')
             self.possible_contacts_update()
-

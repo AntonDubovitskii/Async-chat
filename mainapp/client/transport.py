@@ -5,15 +5,14 @@ import sys
 import logging
 import threading
 import time
+import socket
 
 from json import JSONDecodeError
 from PyQt5.QtCore import pyqtSignal, QObject
-from socket import *
-from utils.data_transfer import get_data, send_data, generate_auth_service_msg
-from utils.errors import *
+from common.data_transfer import get_data, send_data, generate_auth_service_msg
+from common.errors import ServerError
 from datetime import datetime
 from logs import client_log_config
-
 
 sys.path.append('../')
 
@@ -22,6 +21,10 @@ sock_lock = threading.Lock()
 
 
 class Client(threading.Thread, QObject):
+    """
+    Класс реализующий транспортную подсистему клиентского
+    модуля. Отвечает за взаимодействие с сервером.
+    """
     new_message = pyqtSignal(dict)
     message_205 = pyqtSignal()
     connection_lost = pyqtSignal()
@@ -52,7 +55,10 @@ class Client(threading.Thread, QObject):
         self.running = True
 
     def connection_init(self, port, ip):
-        self.sock = socket(AF_INET, SOCK_STREAM)
+        """
+        Метод, отвечающий за инициализацию соединения с сервером.
+        """
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(5)
 
         connected = False
@@ -125,6 +131,7 @@ class Client(threading.Thread, QObject):
         return message
 
     def send_message(self, to, message):
+        """Метод, отправляющий на сервер сообщения для пользователя."""
         message_dict = {
             "action": "msg",
             "time": datetime.now().strftime("%m/%d/%Y, %H:%M:%S"),
@@ -139,6 +146,7 @@ class Client(threading.Thread, QObject):
             logger.info(f'Отправлено сообщение для пользователя {to}')
 
     def transport_shutdown(self):
+        """Метод, уведомляющий сервер о завершении работы клиента."""
         self.running = False
         message = {
             "action": "exit",
@@ -155,6 +163,7 @@ class Client(threading.Thread, QObject):
         time.sleep(0.5)
 
     def server_response_parsing(self, message_dict):
+        """Метод обработчик поступающих сообщений с сервера."""
         if 'response' in message_dict:
             if message_dict['response'] == 200:
                 return
@@ -169,14 +178,20 @@ class Client(threading.Thread, QObject):
             else:
                 logger.debug(f'Принят неизвестный код подтверждения {message_dict["response"]}')
 
-        elif "action" in message_dict and message_dict["action"] == "msg" and "from" in message_dict \
-                and "to" in message_dict and "message" in message_dict and message_dict["to"] == self.username:
+        elif "action" in message_dict and message_dict["action"] == "msg" \
+                and "from" in message_dict and "to" in message_dict \
+                and "message" in message_dict and message_dict["to"] == self.username:
 
-            logger.debug(f'Получено сообщение от пользователя {message_dict["from"]}:{message_dict["message"]}')
+            logger.debug(f'Получено сообщение от пользователя '
+                         f'{message_dict["from"]}:{message_dict["message"]}')
 
             self.new_message.emit(message_dict)
 
     def contacts_list_update(self):
+        """
+        Метод, запрашивающий у сервера список контактов текущего пользователя
+        и обновляющий данные в клиентской базе данных.
+        """
         self.database.contacts_clear()
         logger.debug(f'Запрос контакт листа для пользователя {self.username}')
         request = {
@@ -196,6 +211,10 @@ class Client(threading.Thread, QObject):
             logger.error('Не удалось обновить список контактов.')
 
     def user_list_update(self):
+        """
+        Метод, запрашивающий у сервера общий список пользователей
+        и обновляющий данные в клиентской базе данных.
+        """
         logger.debug(f'Запрос списка известных пользователей {self.username}')
         req = {
             'action': 'users_request',
@@ -211,6 +230,7 @@ class Client(threading.Thread, QObject):
             logger.error('Не удалось обновить список известных пользователей.')
 
     def add_contact(self, contact):
+        """Метод, отправляющий на сервер сведения о добавлении контакта."""
         logger.debug(f'Создание контакта {contact}')
         req = {
             'action': 'add_contact',
@@ -223,6 +243,7 @@ class Client(threading.Thread, QObject):
             self.server_response_parsing(get_data(self.sock))
 
     def remove_contact(self, contact):
+        """Метод, отправляющий на сервер информацию об удалении контакта."""
         logger.debug(f'Создание контакта {contact}')
         req = {
             'action': 'delete_contact',
@@ -235,6 +256,7 @@ class Client(threading.Thread, QObject):
             self.server_response_parsing(get_data(self.sock))
 
     def key_request(self, user):
+        """Метод, запрашивающий с сервера публичный ключ пользователя."""
         logger.debug(f'Запрос публичного ключа для {user}')
         req = {
             'action': 'public_key_request',
@@ -250,6 +272,7 @@ class Client(threading.Thread, QObject):
             logger.error(f'Не удалось получить ключ собеседника{user}.')
 
     def run(self):
+        """Метод, содержащий основной цикл работы транспортного потока."""
         logger.debug('Запущен процесс - приёмник собщений с сервера.')
         while self.running:
             time.sleep(1)
@@ -263,7 +286,8 @@ class Client(threading.Thread, QObject):
                         logger.critical(f'Потеряно соединение с сервером.')
                         self.running = False
                         self.connection_lost.emit()
-                except (ConnectionError, ConnectionAbortedError, ConnectionResetError, JSONDecodeError, TypeError):
+                except (ConnectionError, ConnectionAbortedError,
+                        ConnectionResetError, JSONDecodeError, TypeError):
                     logger.debug(f'Потеряно соединение с сервером.')
                     self.running = False
                     self.connection_lost.emit()
@@ -273,4 +297,3 @@ class Client(threading.Thread, QObject):
             if message:
                 logger.debug(f'Принято сообщение с сервера: {message}')
                 self.server_response_parsing(message)
-

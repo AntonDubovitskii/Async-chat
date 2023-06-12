@@ -15,7 +15,5 @@ timed_rotating_fhc.setFormatter(formatter_client)
 logger_client.addHandler(timed_rotating_fhc)
 logger_client.setLevel(logging.DEBUG)
 
-
 if __name__ == '__main__':
     logger_client.debug('testing client logging system')
-
