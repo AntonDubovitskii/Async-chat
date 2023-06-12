@@ -12,6 +12,7 @@ class ClientDatabase:
     SQLAlchemy 2.0 ORM и используется декларативный подход.
     """
     class Base(DeclarativeBase):
+        """Базовый декларативный класс для дальнейшего наследования."""
         pass
 
     class KnownUsers(Base):
@@ -41,7 +42,8 @@ class ClientDatabase:
         from_user: Mapped[str] = mapped_column(String(50))
         to_user: Mapped[str] = mapped_column(String(50))
         message: Mapped[str] = mapped_column(TEXT)
-        date: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now())
+        date: Mapped[datetime.datetime] = mapped_column(
+            DateTime(timezone=True), default=datetime.datetime.now())
 
         def __init__(self, from_user, to_user, message):
             super().__init__()
@@ -72,7 +74,8 @@ class ClientDatabase:
     def __init__(self, name):
         path = os.path.dirname(os.path.realpath(__file__))
         filename = f'client_{name}.db3'
-        self.engine = create_engine(f'sqlite:///{os.path.join(path, filename)}', echo=False, pool_recycle=7200,
+        self.engine = create_engine(f'sqlite:///{os.path.join(path, filename)}',
+                                    echo=False, pool_recycle=7200,
                                     connect_args={'check_same_thread': False})
 
         self.Base.metadata.create_all(self.engine)
@@ -89,7 +92,8 @@ class ClientDatabase:
         :param contact:
         :return:
         """
-        if not self.session.query(self.Contacts).filter_by(name=contact).count():
+        if not self.session.query(
+                self.Contacts).filter_by(name=contact).count():
             contact_row = self.Contacts(contact)
             self.session.add(contact_row)
             self.session.commit()
@@ -138,14 +142,16 @@ class ClientDatabase:
         Метод, возвращающий список всех контактов.
         :return:
         """
-        return [contact[0] for contact in self.session.query(self.Contacts.name).all()]
+        return [contact[0]
+                for contact in self.session.query(self.Contacts.name).all()]
 
     def get_users(self):
         """
         Метод, возвращающий список всех известных пользователей.
         :return:
         """
-        return [user[0] for user in self.session.query(self.KnownUsers.username).all()]
+        return [user[0]
+                for user in self.session.query(self.KnownUsers.username).all()]
 
     def check_user(self, user):
         """
@@ -153,7 +159,8 @@ class ClientDatabase:
         :param user:
         :return:
         """
-        if self.session.query(self.KnownUsers).filter_by(username=user).count():
+        if self.session.query(self.KnownUsers).filter_by(
+                username=user).count():
             return True
         else:
             return False
@@ -191,8 +198,14 @@ if __name__ == '__main__':
         test_db.add_contact(i)
     test_db.add_contact('test4')
     test_db.add_users(['test1', 'test2', 'test3', 'test4', 'test5'])
-    test_db.save_message('test1', 'test2', f'Привет! я тестовое сообщение от {datetime.datetime.now()}!')
-    test_db.save_message('test2', 'test1', f'Привет! я другое тестовое сообщение от {datetime.datetime.now()}!')
+    test_db.save_message(
+        'test1',
+        'test2',
+        f'Привет! я тестовое сообщение от {datetime.datetime.now()}!')
+    test_db.save_message(
+        'test2',
+        'test1',
+        f'Привет! я другое тестовое сообщение от {datetime.datetime.now()}!')
     print(test_db.get_contacts())
     print(test_db.get_users())
     print(test_db.check_user('test1'))

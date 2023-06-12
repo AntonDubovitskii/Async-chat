@@ -6,11 +6,11 @@ from json import JSONDecodeError
 
 from socket import *
 from threading import Thread
-from utils.data_transfer import get_data, send_data
-from utils.errors import *
+from common.data_transfer import get_data, send_data
+from common.errors import *
 from datetime import datetime
 
-from utils.metaclasses import ClientVerifier
+from common.metaclasses import ClientVerifier
 from client.client_db import ClientDatabase
 
 logger = logging.getLogger('client')

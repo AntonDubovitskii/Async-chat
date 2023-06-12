@@ -8,19 +8,17 @@ import socket
 import threading
 
 from json import JSONDecodeError
-from utils.data_transfer import get_data, send_data, generate_auth_service_msg
-from utils.descriptors import Port
-from utils.metaclasses import ServerVerifier
+from common.data_transfer import get_data, send_data, generate_auth_service_msg
+from common.descriptors import Port
+from common.metaclasses import ServerVerifier
 from server.server_db import ServerStorage
-from additional_tools.decorators import login_required
 
 logger = logging.getLogger('server')
 
 
-class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
+class ServerMsgProc(threading.Thread):
     """
-    Основной класс сервера. Принимает соединения, словари - пакеты
-    от клиентов, обрабатывает поступающие сообщения.
+    Основной класс сервера. Принимает соединения, словари - пакеты от клиентов, обрабатывает поступающие сообщения.
     Работает в качестве отдельного потока.
     """
     port = Port("port")
@@ -104,7 +102,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_no_user_error_msg(cls, data: dict):
-        """Метод, генерирующий сообщение об ошибке 404 - указанный пользователь не зарегистрирован."""
+        """Метод, генерирующий сообщение об ошибке
+        404 - указанный пользователь не зарегистрирован."""
         if not isinstance(data, dict):
             raise ValueError
         msg = {
@@ -116,7 +115,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
     @classmethod
     def generate_user_not_online_error_msg(cls, data: dict):
-        """Метод, генерирующий сообщение об ошибке 410 - пользователь не в сети."""
+        """Метод, генерирующий сообщение об ошибке
+        410 - пользователь не в сети."""
         if not isinstance(data, dict):
             raise ValueError
         msg = {
@@ -137,23 +137,29 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
         if 'action' in data and 'time' in data and 'user' in data \
                 and data['action'] == 'presence' and data['user']['account_name']:
             msg_type = 'presense_msg'
-        elif 'action' in data and 'time' in data and 'from' in data and 'to' in data and 'message' in data \
-                and data['action'] == 'msg' and data['to'] == '#':
+        elif 'action' in data and 'time' in data and 'from' in data \
+                and 'to' in data and 'message' in data and data['action'] == 'msg' \
+                and data['to'] == '#':
             msg_type = 'common_chat_msg'
-        elif 'action' in data and 'time' in data and 'from' in data and 'to' in data and 'message' in data \
+        elif 'action' in data and 'time' in data and 'from' in data \
+                and 'to' in data and 'message' in data \
                 and data['action'] == 'msg' and data['to'] != '#':
             msg_type = 'p2p_chat_msg'
         elif 'action' in data and 'user' in data and data['action'] == 'get_contacts':
             msg_type = 'request_contacts_msg'
-        elif 'action' in data and 'user' in data and 'invited_user' in data and data['action'] == 'add_contact':
+        elif 'action' in data and 'user' in data and 'invited_user' in data \
+                and data['action'] == 'add_contact':
             msg_type = 'add_contact_msg'
-        elif 'action' in data and 'user' in data and 'invited_user' in data and data['action'] == 'delete_contact':
+        elif 'action' in data and 'user' in data and 'invited_user' in data \
+                and data['action'] == 'delete_contact':
             msg_type = 'delete_contact_msg'
         elif 'action' in data and 'account' in data and data['action'] == 'users_request':
             msg_type = 'known_users_request_msg'
-        elif 'action' in data and data['action'] == 'public_key_request' and 'account_name' in data:
+        elif 'action' in data and data['action'] == 'public_key_request' \
+                and 'account_name' in data:
             msg_type = 'public_key_request_msg'
-        elif 'action' in data and 'time' in data and 'account_name' and 'message' and data['action'] == 'exit':
+        elif 'action' in data and 'time' in data and 'account_name' \
+                and 'message' and data['action'] == 'exit':
             msg_type = 'exit_msg'
         else:
             msg_type = 'incorrect message'
@@ -182,8 +188,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
         """
         for message_sock, message in requests.items():
             """
-            Проверка типа сообщения, в зависимости от этого сервер посылает сообщение дальше, всему чату, в лс, либо
-            генерирует ответ на приветствие
+            Проверка типа сообщения, в зависимости от этого сервер посылает сообщение дальше, 
+            всему чату, в лс, либо генерирует ответ на приветствие
             """
             match ServerMsgProc.identify_msg_type(message):
                 case 'presense_msg':
@@ -195,8 +201,10 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
                             send_data(self.clients_registered[message['to']], message)
                             self.database.process_message(message['from'], message['to'])
                         else:
-                            send_data(message_sock, ServerMsgProc.generate_no_user_error_msg(message))
-                    except (ConnectionAbortedError, ConnectionError, ConnectionResetError, ConnectionRefusedError):
+                            send_data(message_sock,
+                                      ServerMsgProc.generate_no_user_error_msg(message))
+                    except (ConnectionAbortedError,ConnectionError,
+                            ConnectionResetError, ConnectionRefusedError):
                         logger.info(f'Связь с клиентом {message["to"]} была потеряна')
                         self.database.user_logout(message["to"])
                         del self.clients_registered[message["to"]]
@@ -213,7 +221,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
 
                 case 'request_contacts_msg':
                     if self.clients_registered[message['user']] == message_sock:
-                        response = ServerMsgProc.generate_contact_list_answer(message['user'], self.database)
+                        response = ServerMsgProc.generate_contact_list_answer(message['user'],
+                                                                              self.database)
                         send_data(message_sock, response)
                     else:
                         send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
@@ -294,7 +303,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
             random_str = binascii.hexlify(os.urandom(64))
             auth_msg_dict['data'] = random_str.decode('ascii')
 
-            auth_hash = hmac.new(self.database.get_hash(message['user']['account_name']), random_str, 'MD5')
+            auth_hash = hmac.new(
+                self.database.get_hash(message['user']['account_name']),random_str, 'MD5')
             digest = auth_hash.digest()
 
             try:
@@ -346,7 +356,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
     def init_socket(self):
         """Метод, инициализирующий сокет."""
         logger.info(
-            f'Запущен сервер, порт для подключений: {self.port} , адрес с которого принимаются подключения: {self.addr}.'
+            f'Запущен сервер, порт для подключений: {self.port} , '
+            f'адрес с которого принимаются подключения: {self.addr}.'
             f' Если адрес не указан, принимаются соединения с любых адресов.')
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -384,7 +395,8 @@ class ServerMsgProc(threading.Thread, metaclass=ServerVerifier):
                 to_receive_list = []
                 to_send_list = []
                 try:
-                    to_receive_list, to_send_list, e = select.select(self.clients_temp, self.clients_temp, [], wait)
+                    to_receive_list, to_send_list, e = \
+                        select.select(self.clients_temp, self.clients_temp, [], wait)
                 except:
                     pass
 

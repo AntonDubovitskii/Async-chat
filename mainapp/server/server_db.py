@@ -1,7 +1,7 @@
 import datetime
 import os
-from typing import List
 
+from typing import List
 from sqlalchemy import create_engine, String, INT, DateTime, ForeignKey, Integer, TEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.sql import func
@@ -15,6 +15,7 @@ class ServerStorage:
     """
 
     class Base(DeclarativeBase):
+        """Базовый декларативный класс для дальнейшего наследования."""
         pass
 
     class Users(Base):
@@ -25,13 +26,16 @@ class ServerStorage:
         __tablename__ = 'user_account'
         id: Mapped[int] = mapped_column(primary_key=True)
         login: Mapped[str] = mapped_column(String(50))
-        last_login: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.now())
+        last_login: Mapped[datetime.datetime] = mapped_column(
+            DateTime(timezone=True), default=datetime.datetime.now())
         pubkey: Mapped[str] = mapped_column(TEXT, nullable=True)
         passwd_hash: Mapped[str] = mapped_column(String)
 
-        session: Mapped[List["LoginSessions"]] = relationship(back_populates='account')
+        session: Mapped[List["LoginSessions"]] = relationship(
+            back_populates='account')
         active: Mapped["ActiveUsers"] = relationship(back_populates='account')
-        history: Mapped[List["UsersHistory"]] = relationship(back_populates='account')
+        history: Mapped[List["UsersHistory"]] = relationship(
+            back_populates='account')
 
         def __init__(self, login, passwd_hash):
             super().__init__()
@@ -74,7 +78,8 @@ class ServerStorage:
         id: Mapped[int] = mapped_column(primary_key=True)
         ip_address: Mapped[str] = mapped_column(String(20))
         port: Mapped[str] = mapped_column(INT)
-        login_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+        login_time: Mapped[datetime.datetime] = mapped_column(
+            DateTime(timezone=True), server_default=func.now())
         name: Mapped[int] = mapped_column(ForeignKey('user_account.id'))
         account: Mapped["Users"] = relationship(back_populates='session')
 
@@ -101,7 +106,8 @@ class ServerStorage:
         contact_id = mapped_column(Integer, ForeignKey('user_account.id'))
 
         user = relationship("Users", foreign_keys="[UsersContacts.user_id]")
-        contact = relationship("Users", foreign_keys="[UsersContacts.contact_id]")
+        contact = relationship(
+            "Users", foreign_keys="[UsersContacts.contact_id]")
 
         def __init__(self, user_id, contact_id):
             super().__init__()
@@ -185,9 +191,13 @@ class ServerStorage:
         Метод, удаляющий пользователя из базы данных.
         """
         user = self.session.query(self.Users).filter_by(login=name).first()
-        self.session.query(self.ActiveUsers).filter_by(account_id=user.id).delete()
+        self.session.query(
+            self.ActiveUsers).filter_by(
+            account_id=user.id).delete()
         self.session.query(self.LoginSessions).filter_by(name=user.id).delete()
-        self.session.query(self.UsersContacts).filter_by(user_id=user.id).delete()
+        self.session.query(
+            self.UsersContacts).filter_by(
+            user_id=user.id).delete()
         self.session.query(
             self.UsersContacts).filter_by(
             contact_id=user.id).delete()
@@ -216,7 +226,9 @@ class ServerStorage:
         """Метод, фиксирующий отключения пользователя."""
         user = self.session.query(self.Users).filter_by(login=username).first()
         print(user.login)
-        self.session.query(self.ActiveUsers).filter_by(account_id=user.id).delete()
+        self.session.query(
+            self.ActiveUsers).filter_by(
+            account_id=user.id).delete()
 
         self.session.commit()
 
@@ -251,12 +263,20 @@ class ServerStorage:
 
     def process_message(self, sender, recipient):
         """Метод, записывающий в таблицу статистики факт передачи сообщения."""
-        sender = self.session.query(self.Users).filter_by(login=sender).first().id
-        recipient = self.session.query(self.Users).filter_by(login=recipient).first().id
+        sender = self.session.query(
+            self.Users).filter_by(
+            login=sender).first().id
+        recipient = self.session.query(
+            self.Users).filter_by(
+            login=recipient).first().id
 
-        sender_row = self.session.query(self.UsersHistory).filter_by(user=sender).first()
+        sender_row = self.session.query(
+            self.UsersHistory).filter_by(
+            user=sender).first()
         sender_row.sent += 1
-        recipient_row = self.session.query(self.UsersHistory).filter_by(user=recipient).first()
+        recipient_row = self.session.query(
+            self.UsersHistory).filter_by(
+            user=recipient).first()
         recipient_row.accepted += 1
 
         self.session.commit()
@@ -274,7 +294,9 @@ class ServerStorage:
     def add_contact(self, username, contact_name):
         """Метод, добавляющий контакт для пользователя."""
         user = self.session.query(self.Users).filter_by(login=username).first()
-        contact = self.session.query(self.Users).filter_by(login=contact_name).first()
+        contact = self.session.query(
+            self.Users).filter_by(
+            login=contact_name).first()
 
         if not contact or self.session.query(self.UsersContacts).filter_by(user_id=user.id,
                                                                            contact_id=contact.id).count():
@@ -287,7 +309,9 @@ class ServerStorage:
     def remove_contact(self, username, contact_name):
         """Метод, удаляющий указанный контакт пользователя."""
         user = self.session.query(self.Users).filter_by(login=username).first()
-        contact = self.session.query(self.Users).filter_by(login=contact_name).first()
+        contact = self.session.query(
+            self.Users).filter_by(
+            login=contact_name).first()
 
         if not contact:
             return

@@ -5,12 +5,12 @@ import sys
 import logging
 import threading
 import time
+import socket
 
 from json import JSONDecodeError
 from PyQt5.QtCore import pyqtSignal, QObject
-from socket import *
-from utils.data_transfer import get_data, send_data, generate_auth_service_msg
-from utils.errors import *
+from common.data_transfer import get_data, send_data, generate_auth_service_msg
+from common.errors import ServerError
 from datetime import datetime
 from logs import client_log_config
 
@@ -58,7 +58,7 @@ class Client(threading.Thread, QObject):
         """
         Метод, отвечающий за инициализацию соединения с сервером.
         """
-        self.sock = socket(AF_INET, SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.settimeout(5)
 
         connected = False
@@ -178,10 +178,12 @@ class Client(threading.Thread, QObject):
             else:
                 logger.debug(f'Принят неизвестный код подтверждения {message_dict["response"]}')
 
-        elif "action" in message_dict and message_dict["action"] == "msg" and "from" in message_dict \
-                and "to" in message_dict and "message" in message_dict and message_dict["to"] == self.username:
+        elif "action" in message_dict and message_dict["action"] == "msg" \
+                and "from" in message_dict and "to" in message_dict \
+                and "message" in message_dict and message_dict["to"] == self.username:
 
-            logger.debug(f'Получено сообщение от пользователя {message_dict["from"]}:{message_dict["message"]}')
+            logger.debug(f'Получено сообщение от пользователя '
+                         f'{message_dict["from"]}:{message_dict["message"]}')
 
             self.new_message.emit(message_dict)
 
@@ -284,7 +286,8 @@ class Client(threading.Thread, QObject):
                         logger.critical(f'Потеряно соединение с сервером.')
                         self.running = False
                         self.connection_lost.emit()
-                except (ConnectionError, ConnectionAbortedError, ConnectionResetError, JSONDecodeError, TypeError):
+                except (ConnectionError, ConnectionAbortedError,
+                        ConnectionResetError, JSONDecodeError, TypeError):
                     logger.debug(f'Потеряно соединение с сервером.')
                     self.running = False
                     self.connection_lost.emit()

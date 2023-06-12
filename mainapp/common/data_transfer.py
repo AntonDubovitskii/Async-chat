@@ -3,6 +3,9 @@ import time
 
 
 def get_data(soc, length=100000, encoding='utf-8'):
+    """
+    Получение данных с указанного сокета, проведение декодирования и преобразование в формат словаря.
+    """
     data = soc.recv(length)
 
     if isinstance(data, bytes):

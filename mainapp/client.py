@@ -5,7 +5,7 @@ import logging
 
 from Cryptodome.PublicKey import RSA
 from PyQt5.QtWidgets import QApplication
-from utils.errors import *
+from common.errors import *
 from client.client_db import ClientDatabase
 from client.transport import Client
 from client.main_window import ClientMainWindow

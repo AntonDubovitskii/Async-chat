@@ -11,7 +11,7 @@ from PyQt5.QtCore import pyqtSlot, Qt
 from client.main_window_conv import Ui_MainClientWindow
 from client.add_contact import AddContactDialog
 from client.del_contact import DelContactDialog
-from utils.errors import ServerError
+from common.errors import ServerError
 from logs import client_log_config
 
 from Cryptodome.Cipher import PKCS1_OAEP
