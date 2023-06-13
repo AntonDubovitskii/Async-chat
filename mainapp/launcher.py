@@ -10,7 +10,7 @@ while True:
         while subprocess_list:
             subproc = subprocess_list.pop()
             subproc.kill()
-        exit()
+        sys.exit()
 
     else:
         if sys.platform.startswith('win32'):

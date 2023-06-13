@@ -12,12 +12,10 @@ from client.main_window_conv import Ui_MainClientWindow
 from client.add_contact import AddContactDialog
 from client.del_contact import DelContactDialog
 from common.errors import ServerError
-from logs import client_log_config
 
 from Cryptodome.Cipher import PKCS1_OAEP
 from Cryptodome.PublicKey import RSA
 
-sys.path.append('../')
 
 logger = logging.getLogger('client')
 

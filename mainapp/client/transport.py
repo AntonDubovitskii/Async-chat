@@ -12,7 +12,6 @@ from PyQt5.QtCore import pyqtSignal, QObject
 from common.data_transfer import get_data, send_data, generate_auth_service_msg
 from common.errors import ServerError
 from datetime import datetime
-from logs import client_log_config
 
 sys.path.append('../')
 

@@ -7,7 +7,6 @@ import sys
 from server.main_window import MainWindow
 from server.server_core import ServerMsgProc
 from server.server_db import ServerStorage
-from logs import server_log_config
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
@@ -34,7 +33,8 @@ def arg_parser(default_port, default_address):
 def config_load():
     """Парсер конфигурационного файла."""
     config = configparser.ConfigParser()
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    # dir_path = os.path.dirname(os.path.realpath(__file__))
+    dir_path = os.getcwd()
     config.read(f"{dir_path}/{'server.ini'}")
 
     if 'SETTINGS' in config:

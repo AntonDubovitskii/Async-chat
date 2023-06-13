@@ -1,6 +1,8 @@
 import binascii
 import hmac
 import os
+import sys
+
 import select
 import logging
 import time
@@ -181,101 +183,6 @@ class ServerMsgProc(threading.Thread):
                 self.remove_client(sock)
         return responses
 
-    def process_responses(self, requests, w_clients):
-        """
-        Метод, реализующий проход по словарю с полученными данными и
-        выполняющий действия, соответствующие типу полученного сообщения.
-        """
-        for message_sock, message in requests.items():
-            """
-            Проверка типа сообщения, в зависимости от этого сервер посылает сообщение дальше, 
-            всему чату, в лс, либо генерирует ответ на приветствие
-            """
-            match ServerMsgProc.identify_msg_type(message):
-                case 'presense_msg':
-                    self.authorize_user(message, message_sock)
-
-                case 'p2p_chat_msg':
-                    try:
-                        if message['to'] in self.clients_registered:
-                            send_data(self.clients_registered[message['to']], message)
-                            self.database.process_message(message['from'], message['to'])
-                        else:
-                            send_data(message_sock,
-                                      ServerMsgProc.generate_no_user_error_msg(message))
-                    except (ConnectionAbortedError,ConnectionError,
-                            ConnectionResetError, ConnectionRefusedError):
-                        logger.info(f'Связь с клиентом {message["to"]} была потеряна')
-                        self.database.user_logout(message["to"])
-                        del self.clients_registered[message["to"]]
-                        message_sock.close()
-                        self.clients_temp.remove(message_sock)
-
-                case 'common_chat_msg':
-                    for sock in w_clients:
-                        try:
-                            send_data(sock, message)
-                        except:
-                            sock.close()
-                            self.clients_temp.remove(sock)
-
-                case 'request_contacts_msg':
-                    if self.clients_registered[message['user']] == message_sock:
-                        response = ServerMsgProc.generate_contact_list_answer(message['user'],
-                                                                              self.database)
-                        send_data(message_sock, response)
-                    else:
-                        send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
-
-                case 'add_contact_msg':
-                    if self.clients_registered[message['user']] == message_sock:
-                        self.database.add_contact(message['user'], message['invited_user'])
-                        send_data(message_sock, ServerMsgProc.generate_200_ok_answer())
-                    else:
-                        send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
-
-                case 'delete_contact_msg':
-                    if self.clients_registered[message['user']] == message_sock:
-                        self.database.remove_contacts(message['user'], message['invited_user'])
-                        send_data(message_sock, ServerMsgProc.generate_200_ok_answer())
-                    else:
-                        send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
-
-                case 'known_users_request_msg':
-                    if self.clients_registered[message['account']] == message_sock:
-                        response = ServerMsgProc.generate_known_users_answer(self.database)
-                        send_data(message_sock, response)
-                    else:
-                        send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
-
-                case 'public_key_request_msg':
-                    response = generate_auth_service_msg()
-                    response['data'] = self.database.get_pubkey(message['account_name'])
-
-                    if response['data']:
-                        try:
-                            send_data(message_sock, response)
-                        except OSError:
-                            self.remove_client(message_sock)
-                    else:
-                        response = self.generate_invalid_request_error_msg()
-                        response['error'] = 'Нет публичного ключа для данного пользователя'
-                        try:
-                            send_data(message_sock, response)
-                        except OSError:
-                            self.remove_client(message_sock)
-
-                case 'exit_msg':
-                    self.database.user_logout(message['account_name'])
-                    logger.info(
-                        f'Клиент {message["account_name"]} корректно отключился от сервера.')
-                    message_sock.close()
-                    self.clients_temp.remove(message_sock)
-                    del self.clients_registered[message["account_name"]]
-
-                case _:
-                    send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
-
     def authorize_user(self, message, sock):
         """Метод, реализующий авторизацию пользователей."""
         logger.debug(f'Start auth process for {message["user"]}')
@@ -339,6 +246,101 @@ class ServerMsgProc(threading.Thread):
                 self.clients_temp.remove(sock)
                 sock.close()
 
+    def process_responses(self, requests, w_clients):
+        """
+        Метод, реализующий проход по словарю с полученными данными и
+        выполняющий действия, соответствующие типу полученного сообщения.
+        """
+        for message_sock, message in requests.items():
+            """
+            Проверка типа сообщения, в зависимости от этого сервер посылает сообщение дальше, 
+            всему чату, в лс, либо генерирует ответ на приветствие
+            """
+            if ServerMsgProc.identify_msg_type(message) == 'presense_msg':
+                self.authorize_user(message, message_sock)
+
+            elif ServerMsgProc.identify_msg_type(message) == 'p2p_chat_msg':
+                try:
+                    if message['to'] in self.clients_registered:
+                        send_data(self.clients_registered[message['to']], message)
+                        self.database.process_message(message['from'], message['to'])
+                    else:
+                        send_data(message_sock,
+                                  ServerMsgProc.generate_no_user_error_msg(message))
+                except (ConnectionAbortedError,ConnectionError,
+                        ConnectionResetError, ConnectionRefusedError):
+                    logger.info(f'Связь с клиентом {message["to"]} была потеряна')
+                    self.database.user_logout(message["to"])
+                    del self.clients_registered[message["to"]]
+                    message_sock.close()
+                    self.clients_temp.remove(message_sock)
+
+            elif ServerMsgProc.identify_msg_type(message) == 'common_chat_msg':
+                for sock in w_clients:
+                    try:
+                        send_data(sock, message)
+                    except:
+                        sock.close()
+                        self.clients_temp.remove(sock)
+
+            elif ServerMsgProc.identify_msg_type(message) == 'request_contacts_msg':
+                if self.clients_registered[message['user']] == message_sock:
+                    response = ServerMsgProc.generate_contact_list_answer(message['user'],
+                                                                          self.database)
+                    send_data(message_sock, response)
+                else:
+                    send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
+
+            elif ServerMsgProc.identify_msg_type(message) == 'add_contact_msg':
+                if self.clients_registered[message['user']] == message_sock:
+                    self.database.add_contact(message['user'], message['invited_user'])
+                    send_data(message_sock, ServerMsgProc.generate_200_ok_answer())
+                else:
+                    send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
+
+            elif ServerMsgProc.identify_msg_type(message) == 'delete_contact_msg':
+                if self.clients_registered[message['user']] == message_sock:
+                    self.database.remove_contacts(message['user'], message['invited_user'])
+                    send_data(message_sock, ServerMsgProc.generate_200_ok_answer())
+                else:
+                    send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
+
+            elif ServerMsgProc.identify_msg_type(message) == 'known_users_request_msg':
+                if self.clients_registered[message['account']] == message_sock:
+                    response = ServerMsgProc.generate_known_users_answer(self.database)
+                    send_data(message_sock, response)
+                else:
+                    send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
+
+            elif ServerMsgProc.identify_msg_type(message) == 'public_key_request_msg':
+                response = generate_auth_service_msg()
+                response['data'] = self.database.get_pubkey(message['account_name'])
+
+                if response['data']:
+                    try:
+                        send_data(message_sock, response)
+                    except OSError:
+                        self.remove_client(message_sock)
+                else:
+                    response = self.generate_invalid_request_error_msg()
+                    response['error'] = 'Нет публичного ключа для данного пользователя'
+                    try:
+                        send_data(message_sock, response)
+                    except OSError:
+                        self.remove_client(message_sock)
+
+            elif ServerMsgProc.identify_msg_type(message) == 'exit_msg':
+                self.database.user_logout(message['account_name'])
+                logger.info(
+                    f'Клиент {message["account_name"]} корректно отключился от сервера.')
+                message_sock.close()
+                self.clients_temp.remove(message_sock)
+                del self.clients_registered[message["account_name"]]
+
+            else:
+                send_data(message_sock, ServerMsgProc.generate_invalid_request_error_msg())
+
+
     def remove_client(self, client):
         """
         Метод обработчик клиента с которым прервана связь.
@@ -364,7 +366,7 @@ class ServerMsgProc(threading.Thread):
             s.bind((self.addr, self.port))
             s.settimeout(0.5)
         except OSError:
-            exit(1)
+            sys.exit(1)
 
         self.sock = s
         self.sock.listen()
